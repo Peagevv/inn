@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../vr"
+		},
+		{
+			"path": "../HEX"
+		},
+		{
+			"path": "D:/itp/Graficación/HEX 1"
+		},
+		{
+			"path": "D:/itp/Graficación/HEX21"
+		}
+	],
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "iinn"
+	}
+}

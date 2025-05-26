@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlayDual simulación - Industria alimentaria</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            z-index: 100;
+        }
+
+        #blocker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        #instructions {
+            color: white;
+            text-align: center;
+            max-width: 600px;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+        }
+
+        #instructions button {
+            display: block;
+            margin: 30px auto 0 auto;
+            padding: 10px 25px;
+            font-size: 16px;
+            background-color: #202021;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #instructions button:hover {
+            background: linear-gradient(to right, rgb(132, 165, 218), rgba(21, 31, 222, 0.5));
+        }
+
+        #stats {
+            position: absolute;
+            left: 0;
+            top: 0;
+            z-index: 100;
+        }
+
+        #loadingScreen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 300;
+        }
+
+        #loadingProgress {
+            width: 300px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        #loadingBar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(to right, rgb(132, 165, 218), rgba(21, 31, 222, 0.5));
+            transition: width 0.3s;
+        }
+
+        /* Estilos para el sistema de diálogos */
+        #dialogContainer {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            max-width: 800px;
+            z-index: 500;
+        }
+
+        #dialogContainer>div {
+            background: rgba(0, 0, 0, 0.8);
+            border: 3px solid #3A86FF;
+            border-radius: 10px;
+            padding: 20px;
+            color: white;
+            font-family: 'Courier New', monospace;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        #speakerName {
+            font-weight: bold;
+            color: #ada9e6;
+            margin-bottom: 10px;
+        }
+
+        #dialogText {
+            margin-bottom: 15px;
+            line-height: 1.4;
+            animation: typewriter 0.05s steps(1) infinite;
+        }
+
+        #dialogOptions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .dialog-option {
+            padding: 10px;
+            background: rgba(30, 23, 19, 0.5);
+            border: 1px solid #2D3748;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-align: left;
+        }
+
+        .dialog-option:hover {
+            background: linear-gradient(to right, rgba(59, 131, 246, 0.383), rgba(222, 21, 209, 0.5));
+        }
+
+        #continueButton {
+            margin-top: 15px;
+            padding: 8px 15px;
+            background: #4a5057;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+
+        #continueButton:hover {
+            background: linear-gradient(to right, rgba(59, 131, 246, 0.383), rgba(222, 21, 209, 0.5));
+        }
+
+        @keyframes typewriter {
+            from {
+                opacity: 0.8;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<!-- Elementos de audio -->
+<audio id="dialogSound" preload="auto">
+    <source src="m.e.mp3" type="audio/mpeg">
+</audio>
+<audio id="ambientSound" loop preload="auto">
+    <source src="Factory Sounds.mp3" type="audio/mpeg">
+</audio>
+
+<body>
+    <div id="stats"></div>
+    <div id="info">VR Study Room - Haz clic para comenzar</div>
+    <div id="blocker">
+        <div id="instructions">
+            <h1>PlayDual</h1>
+            <p>Conquista el juego, domina el desafío.</p>
+            <p>Controles:</p>
+            <ul style="text-align: left; display: inline-block;">
+                <li>WASD: Movimiento</li>
+                <li>Ratón: Mirar alrededor</li>
+                <li>Click izquierdo: Activar controles</li>
+                <li>ESC: Salir de los controles</li>
+                <li>R: Reiniciar posición</li>
+                <li>E: Interactuar</li>
+            </ul>
+            <button id="startButton">Comenzar Experiencia</button>
+        </div>
+    </div>
+    <div id="loadingScreen">
+        <div class="spinner"></div>
+        <h2 style="color: white; margin-top: 20px;">Cargando modelo 3D...</h2>
+        <div id="loadingProgress">
+            <div id="loadingBar"></div>
+        </div>
+    </div>
+    
+    <!-- Sistema de diálogos -->
+    <div id="dialogContainer">
+        <div>
+            <div id="speakerName">LOUISE</div>
+            <div id="dialogText"></div>
+            <div id="dialogOptions"></div>
+            <button id="continueButton">Continuar</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/PointerLockControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/FBXLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.4/umd/index.min.js"></script>
+    <script>
+        // Variables globales optimizadas
+        let camera, scene, renderer, controls, model, stats;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
+        const velocity = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+        let prevTime = performance.now();
+        let rafId;
+        let lastRenderTime = 0;
+        const targetFPS = 60;
+        let needsShadowUpdate = false;
+        let mixer;
+        let idleAction, talking1Action, talking2Action;
+        let currentAction;
+        const clock = new THREE.Clock();
+
+        // Configuración de rendimiento
+        const MOVEMENT_SPEED = 2.0;
+        const JUMP_FORCE = 8.0;
+        const FRICTION = .8;
+        const GRAVITY = 0.2;
+
+        // Posición por defecto del jugador
+        const defaultPlayerPosition = new THREE.Vector3(2, 1.8, 3);
+
+        // Variables para el sistema de diálogos
+        let currentDialogTree = null;
+        let currentDialogNode = null;
+        let isDialogTyping = false;
+        let fullDialogText = '';
+        let dialogTimeout = null;
+        let isNearLouise = false;
+        let hasStartedDialog = false;
+        const DIALOG_TRIGGER_DISTANCE = 3.0;
+        let currentTextPart = 0;
+        let dialogTextParts = [];
+
+        // Definición de diálogos profesionales
+        const dialogs = {
+            start: {
+                text: "¡Hola! Bienvenido al área de procesos de PlayDual Lácteos. Yo soy Ramiro, operario de línea aquí en la planta. En esta simulación vas a ver cómo trabajamos realmente en producción de quesos.\n\nDependiendo de lo que elijas, te haré algunas preguntas para ver qué tanto conocés del trabajo en planta. También más adelante vas a conocer a tu asistente virtual, que te va a acompañar durante toda la simulación.\n\n¿Listo para empezar?",
+                options: [
+                    { text: "!Estoy listo¡", next: "ready" }
+                ],
+                character: "RAMIRO"
+            },
+            ready: {
+                text: "¡Genial! Primero, te voy a mostrar cómo es el proceso de producción de quesos. Vamos a recorrer la planta y te explicaré cada etapa. Luego, podrás interactuar con los equipos y aprender más sobre nuestro trabajo.\n\n¿Te gustaría empezar con una breve introducción al proceso o prefieres ir directamente a la planta?",
+                options: [
+                    { text: "Introducción al proceso", next: "processIntro" },
+                    { text: "Ir directamente a la planta", next: "goToPlant" }
+                ],
+                character: "RAMIRO"
+            },
+            processIntro: {
+                text: "Perfecto, empecemos con una breve introducción al proceso de producción de quesos. Aquí en PlayDual Lácteos, seguimos un proceso muy cuidadoso para garantizar la calidad de nuestros productos.\n\nPrimero, recibimos la leche fresca de nuestros proveedores. Luego, pasamos por un proceso de pasteurización para eliminar cualquier bacteria. Después, agregamos los cultivos lácticos y cuajo para iniciar la coagulación.\n\nUna vez que la cuajada se forma, la cortamos y la calentamos para liberar el suero. Finalmente, moldeamos el queso y lo dejamos madurar. ¡Así es como producimos nuestros deliciosos quesos!",
+                options: [
+                    { text: "¡Entendido! Vamos a la planta.", next: "goToPlant" }
+                ],
+                character: "RAMIRO"
+            },
+            goToPlant: {
+                text: "Antes de continuar, te explico como evaluaremos, cuando termine de explicarte, te hare un cuestionario, cada pregunta vale 5 puntos, en total seran 10 preguntas",
+                text2: "Si obtienes 40 puntos o mas, pasaras a la siguiente etapa, si no, habra un retroalimentación, y podrás volver a intentarlo.",
+                text3: "¿Listo para comenzar?",
+                options: [
+                    { text: "¡Estoy listo para aprender!", next: "quizStart" }
+                ],
+                character: "RAMIRO"
+            },
+            quizStart: {
+                text: "Versión Beta en desarrollo. Vuelve pronto para más contenido."
+            },
+        };
+
+        // Inicialización optimizada
+        function init() {
+            const dialogSound = document.getElementById('dialogSound');
+            dialogSound.volume = 0.2;
+            dialogSound.preload = 'auto';
+            
+            // Configurar sonido ambiental
+            const ambientSound = document.getElementById('ambientSound');
+            ambientSound.volume = 0.3;
+            ambientSound.preload = 'auto';
+
+            // Configuración de estadísticas de rendimiento
+            stats = new Stats();
+            stats.showPanel(0);
+            document.getElementById('stats').appendChild(stats.dom);
+
+            // Configuración de Three.js optimizada
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+
+            // Configuración de renderizador optimizada
+            const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+            renderer = new THREE.WebGLRenderer({
+                antialias: false,
+                powerPreference: "high-performance",
+                logarithmicDepthBuffer: true,
+                precision: 'mediump'
+            });
+            renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.shadowMap.autoUpdate = false;
+            document.body.appendChild(renderer.domElement);
+
+            // Controles PointerLock optimizados
+            controls = new THREE.PointerLockControls(camera, document.body);
+            scene.add(controls.getObject());
+
+            // Resetear posición
+            resetPlayerPosition();
+
+            // Configuración de eventos optimizada
+            setupUI();
+            setupEventListeners();
+            setupDialogSystem();
+            setupInteraction();
+
+            // Configuración de luces optimizada
+            setupLights();
+        }
+
+        function setupUI() {
+            const startButton = document.getElementById('startButton');
+            const ambientSound = document.getElementById('ambientSound');
+            
+            startButton.addEventListener('click', () => {
+                // Mostrar pantalla de carga al hacer clic en comenzar
+                document.getElementById('loadingScreen').style.display = 'flex';
+                document.getElementById('instructions').style.display = 'none';
+
+                // Iniciar sonido ambiental
+                ambientSound.play().catch(e => {
+                    console.log("No se pudo iniciar el sonido automáticamente:", e);
+                    document.getElementById('info').textContent = "Haz clic en cualquier parte para activar el sonido";
+                });
+
+                // Iniciar la carga del modelo después de un breve retraso
+                setTimeout(() => {
+                    controls.lock();
+                    loadModel();
+                }, 100);
+            });
+
+            controls.addEventListener('lock', () => {
+                document.getElementById('blocker').style.display = 'none';
+                needsShadowUpdate = true;
+                
+                // Asegurarse de que el sonido está activo
+                const ambientSound = document.getElementById('ambientSound');
+                if (ambientSound.paused) {
+                    ambientSound.play().catch(e => console.log("Error al reanudar sonido:", e));
+                }
+            });
+
+            controls.addEventListener('unlock', () => {
+                if (!hasStartedDialog) {
+                    document.getElementById('blocker').style.display = 'flex';
+                    document.getElementById('instructions').style.display = '';
+                }
+                document.getElementById('loadingScreen').style.display = 'none';
+                
+                // Pausar el sonido cuando salimos de la experiencia
+                const ambientSound = document.getElementById('ambientSound');
+                ambientSound.pause();
+            });
+        }
+
+        function setupEventListeners() {
+            // Eventos de teclado optimizados
+            const keyHandler = (e, state) => {
+                switch (e.code) {
+                    case 'ArrowUp': case 'KeyW': moveForward = state; break;
+                    case 'ArrowRight': case 'KeyA': moveRight = state; break;
+                    case 'ArrowDown': case 'KeyS': moveBackward = state; break;
+                    case 'ArrowLeft': case 'KeyD': moveLeft = state; break;
+                    case 'Space': if (state && canJump) { velocity.y = JUMP_FORCE; canJump = false; needsShadowUpdate = true; } break;
+                    case 'KeyR': if (state) { resetPlayerPosition(); needsShadowUpdate = true; } break;
+                    case 'KeyE': if (state && isNearLouise && !hasStartedDialog) {
+                        hasStartedDialog = true;
+                        startDialog(dialogs);
+                    } break;
+                }
+            };
+
+            document.addEventListener('keydown', (e) => keyHandler(e, true), { passive: true });
+            document.addEventListener('keyup', (e) => keyHandler(e, false), { passive: true });
+            window.addEventListener('resize', onWindowResize, { passive: true });
+            
+            // Manejar la política de autoplay de los navegadores
+            document.addEventListener('click', () => {
+                const ambientSound = document.getElementById('ambientSound');
+                if (ambientSound.paused) {
+                    ambientSound.play().catch(e => console.log("Error al reanudar sonido:", e));
+                }
+            }, { once: true });
+        }
+
+        function loadModel() {
+            const loader = new THREE.GLTFLoader();
+
+            loader.load(
+                'PILIN.glb',
+                (gltf) => {
+                    model = gltf.scene;
+
+                    model.traverse((obj) => {
+                        if (obj.isMesh) {
+                            obj.castShadow = false;
+                            obj.receiveShadow = true;
+                            obj.frustumCulled = true;
+                            obj.material = optimizeMaterial(obj.material);
+                        }
+                    });
+
+                    scene.add(model);
+                    console.log('Modelo cargado y optimizado');
+                    loadCharacter();
+
+                    document.getElementById('loadingScreen').style.display = 'none';
+                },
+                (xhr) => {
+                    const percentLoaded = (xhr.loaded / xhr.total) * 100;
+                    document.getElementById('loadingBar').style.width = `${percentLoaded}%`;
+                    console.log(`${percentLoaded.toFixed(2)}% cargado`);
+                },
+                (error) => {
+                    console.error('Error al cargar el modelo:', error);
+                    document.getElementById('loadingScreen').style.display = 'none';
+                    alert('Error al cargar el modelo. Por favor recarga la página.');
+                }
+            );
+        }
+
+        function loadCharacter() {
+            const loader = new THREE.FBXLoader();
+
+            loader.load(
+                'Operario - Brian/Idle.fbx',
+                (fbx) => {
+                    const existingLouise = scene.getObjectByName('Louise');
+                    if (existingLouise) {
+                        scene.remove(existingLouise);
+                    }
+
+                    const character = fbx;
+                    character.position.set(-8, 0, 10);
+                    character.scale.set(.012, .012, .012);
+                    character.rotation.y = Math.PI/2;
+                    character.name = 'Louise';
+
+                    character.traverse((obj) => {
+                        if (obj.isMesh) {
+                            obj.castShadow = true;
+                            obj.receiveShadow = true;
+                            obj.material = optimizeMaterial(obj.material);
+                        }
+                    });
+
+                    if (fbx.animations && fbx.animations.length > 0) {
+                        mixer = new THREE.AnimationMixer(character);
+                        idleAction = mixer.clipAction(fbx.animations[0]);
+                        idleAction.setLoop(THREE.LoopRepeat);
+                        idleAction.play();
+                        currentAction = idleAction;
+                    }
+
+                    scene.add(character);
+                    console.log('Personaje FBX cargado correctamente');
+                    document.getElementById('loadingScreen').style.display = 'none';
+                },
+                (xhr) => {
+                    const percentLoaded = 50 + (xhr.loaded / xhr.total) * 50;
+                    document.getElementById('loadingBar').style.width = `${percentLoaded}%`;
+                },
+                (error) => {
+                    console.error('Error al cargar el personaje:', error);
+                    document.getElementById('loadingScreen').style.display = 'none';
+                }
+            );
+        }
+
+        function getDistanceToLouise() {
+            const louise = scene.getObjectByName('Louise');
+            if (!louise || !controls.getObject()) return Infinity;
+
+            const playerPosition = controls.getObject().position;
+            const louisePosition = louise.position;
+
+            return playerPosition.distanceTo(louisePosition);
+        }
+
+        function optimizeMaterial(material) {
+            if (material instanceof THREE.MeshStandardMaterial) {
+                material.roughness = 0.8;
+                material.metalness = 0.2;
+            }
+            material.side = THREE.FrontSide;
+            material.flatShading = false;
+            return material;
+        }
+
+        function setupLights() {
+            scene.background = new THREE.Color(0xFFFFFF);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            const ambientLight = new THREE.AmbientLight(0xFFFFFFF, .5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffe5b4, 0.3);
+            directionalLight.position.set(3, 10, 5).normalize();
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 1024;
+            directionalLight.shadow.mapSize.height = 1024;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 50;
+            scene.add(directionalLight);
+
+            const pointLight = new THREE.PointLight(0xffe5b4, 0.3, 50);
+            pointLight.position.set(0, 1, 0);
+            scene.add(pointLight);
+
+            const wallLight1 = new THREE.DirectionalLight(0xFFF5E6, 0.4);
+            wallLight1.position.set(-5, 2, 0);
+            wallLight1.castShadow = false;
+            scene.add(wallLight1);
+
+            const wallLight2 = new THREE.DirectionalLight(0xFFF5E6, 0.4);
+            wallLight2.position.set(5, 2, 0);
+            scene.add(wallLight2);
+
+            const ceilingLight = new THREE.RectAreaLight(0xFFFFFF, 0.3, 10, 10);
+            ceilingLight.position.set(0, 5, 0);
+            ceilingLight.rotation.x = Math.PI;
+            scene.add(ceilingLight);
+        }
+
+        function resetPlayerPosition() {
+            if (controls && controls.getObject) {
+                controls.getObject().position.copy(defaultPlayerPosition);
+                velocity.set(0, 0, 0);
+                canJump = true;
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            needsShadowUpdate = true;
+        }
+
+        function animate(currentTime) {
+            stats.begin();
+            rafId = requestAnimationFrame(animate);
+
+            const deltaTime = currentTime - lastRenderTime;
+            const targetDelta = 1000 / targetFPS;
+
+            if (deltaTime < targetDelta) {
+                stats.end();
+                return;
+            }
+
+            lastRenderTime = currentTime - (deltaTime % targetDelta);
+            const clampedDeltaTime = Math.min(0.1, deltaTime / 1000);
+
+            if (mixer) {
+                mixer.update(clampedDeltaTime);
+            }
+
+            if (controls && controls.isLocked) {
+                updatePlayerMovement(clampedDeltaTime);
+                applyGravity(clampedDeltaTime);
+            }
+
+            if (needsShadowUpdate) {
+                renderer.shadowMap.needsUpdate = true;
+                needsShadowUpdate = false;
+            }
+
+            renderer.render(scene, camera);
+            stats.end();
+        }
+
+        function updatePlayerMovement(deltaTime) {
+            velocity.x *= FRICTION;
+            velocity.z *= FRICTION;
+
+            direction.set(0, 0, 0);
+            if (moveForward) direction.z -= 1;
+            if (moveBackward) direction.z += 1;
+            if (moveLeft) direction.x -= 1;
+            if (moveRight) direction.x += 1;
+
+            if (direction.length() > 0) {
+                direction.normalize();
+                velocity.x += direction.x * MOVEMENT_SPEED * deltaTime * 10;
+                velocity.z += direction.z * MOVEMENT_SPEED * deltaTime * 10;
+                needsShadowUpdate = true;
+            }
+
+            controls.moveRight(-velocity.x * deltaTime);
+            controls.moveForward(-velocity.z * deltaTime);
+        }
+
+        function applyGravity(deltaTime) {
+            velocity.y -= GRAVITY * deltaTime * 10;
+            controls.getObject().position.y += velocity.y * deltaTime;
+
+            if (controls.getObject().position.y < defaultPlayerPosition.y) {
+                controls.getObject().position.y = defaultPlayerPosition.y;
+                velocity.y = 0;
+                canJump = true;
+                needsShadowUpdate = true;
+            }
+        }
+
+        /***********************/
+        /* SISTEMA DE DIÁLOGOS */
+        /***********************/
+
+        function setupDialogSystem() {
+            document.getElementById('continueButton').addEventListener('click', () => {
+                if (isDialogTyping) {
+                    finishTyping();
+                    return;
+                }
+
+                if (currentTextPart < dialogTextParts.length - 1) {
+                    currentTextPart++;
+                    showTextPart(dialogTextParts[currentTextPart]);
+                } else {
+                    if (currentDialogNode.options && currentDialogNode.options.length > 0) {
+                        showDialogOptions();
+                    } else {
+                        endDialog();
+                    }
+                }
+            });
+        }
+
+        function setupInteraction() {
+            function checkProximity() {
+                const distance = getDistanceToLouise();
+
+                if (distance <= DIALOG_TRIGGER_DISTANCE) {
+                    if (!isNearLouise) {
+                        isNearLouise = true;
+                        document.getElementById('info').textContent = "Presiona E para hablar con Brian";
+                    }
+                } else {
+                    if (isNearLouise) {
+                        isNearLouise = false;
+                        document.getElementById('info').textContent = "VR Study Room";
+
+                        if (hasStartedDialog) {
+                            endDialog();
+                            hasStartedDialog = false;
+                        }
+                    }
+                }
+            }
+
+            const originalAnimate = animate;
+            animate = function (currentTime) {
+                originalAnimate(currentTime);
+                if (controls.isLocked) {
+                    checkProximity();
+                }
+            };
+        }
+
+        function startDialog(dialogTree) {
+            controls.unlock();
+            document.getElementById('blocker').style.display = 'none';
+
+            // Reducir volumen del sonido ambiental durante diálogos
+            const ambientSound = document.getElementById('ambientSound');
+            ambientSound.volume = 0.1;
+
+            const dialogContainer = document.getElementById('dialogContainer');
+            dialogContainer.style.display = 'block';
+
+            currentDialogTree = dialogTree;
+            showDialogNode('start');
+        }
+
+        function showDialogNode(nodeId) {
+            const dialogSound = document.getElementById('dialogSound');
+            dialogSound.pause();
+            dialogSound.currentTime = 0;
+            
+            const node = dialogs[nodeId];
+            if (!node) return endDialog();
+
+            currentDialogNode = node;
+            document.getElementById('speakerName').textContent = node.character || 'LOUISE';
+
+            if (mixer && talking1Action) {
+                if (currentAction) currentAction.stop();
+                talking1Action.reset().play();
+                currentAction = talking1Action;
+            }
+
+            splitDialogText(node.text);
+
+            currentTextPart = 0;
+            showTextPart(dialogTextParts[currentTextPart]);
+
+            document.getElementById('dialogOptions').innerHTML = '';
+            document.getElementById('continueButton').style.display = 'none';
+        }
+
+        function splitDialogText(text) {
+            const maxCharsPerPart = 200;
+            dialogTextParts = [];
+
+            if (text.length <= maxCharsPerPart) {
+                dialogTextParts.push(text);
+                return;
+            }
+
+            const paragraphs = text.split('\n\n');
+
+            for (const paragraph of paragraphs) {
+                if (paragraph.length > maxCharsPerPart) {
+                    const sentences = paragraph.split(/(?<=[.!?])\s+/);
+                    let currentPart = '';
+
+                    for (const sentence of sentences) {
+                        if (currentPart.length + sentence.length > maxCharsPerPart && currentPart.length > 0) {
+                            dialogTextParts.push(currentPart.trim());
+                            currentPart = sentence;
+                        } else {
+                            currentPart += (currentPart.length > 0 ? ' ' : '') + sentence;
+                        }
+                    }
+
+                    if (currentPart.length > 0) {
+                        dialogTextParts.push(currentPart.trim());
+                    }
+                } else {
+                    dialogTextParts.push(paragraph);
+                }
+            }
+        }
+
+        function showTextPart(part) {
+            isDialogTyping = true;
+            const dialogElement = document.getElementById('dialogText');
+            dialogElement.textContent = '';
+            const dialogSound = document.getElementById('dialogSound');
+            
+            dialogSound.volume = 0.2;
+            let soundTimeout;
+            let lastSoundTime = 0;
+
+            if (mixer && talking1Action) {
+                if (currentAction) currentAction.stop();
+                talking1Action.reset().play();
+                currentAction = talking1Action;
+            }
+
+            let currentIndex = 0;
+            const typingInterval = setInterval(() => {
+                if (currentIndex < part.length) {
+                    dialogElement.textContent += part[currentIndex];
+                    currentIndex++;
+                    
+                    if (part[currentIndex-1] !== ' ' && part[currentIndex-1] !== '\n') {
+                        const now = Date.now();
+                        if (now - lastSoundTime > 50) {
+                            dialogSound.pause();
+                            dialogSound.currentTime = 0;
+                            
+                            dialogSound.play().catch(e => console.log("No se pudo reproducir sonido:", e));
+                            lastSoundTime = now;
+                        }
+                    }
+                } else {
+                    clearInterval(typingInterval);
+                    clearTimeout(soundTimeout);
+                    isDialogTyping = false;
+
+                    dialogSound.pause();
+                    dialogSound.currentTime = 0;
+
+                    if (currentTextPart < dialogTextParts.length - 1) {
+                        document.getElementById('continueButton').style.display = 'block';
+                        document.getElementById('continueButton').textContent = 'Continuar';
+                    } else {
+                        if (currentDialogNode.options && currentDialogNode.options.length > 0) {
+                            showDialogOptions();
+                        } else {
+                            document.getElementById('continueButton').style.display = 'block';
+                            document.getElementById('continueButton').textContent = 'Cerrar';
+                        }
+
+                        if (mixer && idleAction) {
+                            if (currentAction) currentAction.stop();
+                            idleAction.reset().play();
+                            currentAction = idleAction;
+                        }
+                    }
+                }
+            }, 30);
+        }
+
+        function showDialogOptions() {
+            const optionsContainer = document.getElementById('dialogOptions');
+            optionsContainer.innerHTML = '';
+
+            if (currentDialogNode.options && currentDialogNode.options.length > 0) {
+                currentDialogNode.options.forEach(option => {
+                    const optionElement = document.createElement('div');
+                    optionElement.className = 'dialog-option';
+                    optionElement.textContent = option.text;
+                    optionElement.addEventListener('click', () => {
+                        showDialogNode(option.next);
+                    });
+                    optionsContainer.appendChild(optionElement);
+                });
+                document.getElementById('continueButton').style.display = 'none';
+            }
+        }
+
+        function finishTyping() {
+            clearTimeout(dialogTimeout);
+            document.getElementById('dialogText').textContent = dialogTextParts[currentTextPart];
+            isDialogTyping = false;
+            
+            const dialogSound = document.getElementById('dialogSound');
+            dialogSound.pause();
+            dialogSound.currentTime = 0;
+
+            if (currentTextPart < dialogTextParts.length - 1) {
+                document.getElementById('continueButton').style.display = 'block';
+                document.getElementById('continueButton').textContent = 'Continuar';
+            } else {
+                if (currentDialogNode.options && currentDialogNode.options.length > 0) {
+                    showDialogOptions();
+                } else {
+                    document.getElementById('continueButton').style.display = 'block';
+                    document.getElementById('continueButton').textContent = 'Cerrar';
+                }
+
+                if (mixer && idleAction) {
+                    if (currentAction) currentAction.stop();
+                    idleAction.reset().play();
+                    currentAction = idleAction;
+                }
+            }
+        }
+
+        function endDialog() {
+            document.getElementById('dialogContainer').style.display = 'none';
+            hasStartedDialog = false;
+            
+            // Restaurar volumen del sonido ambiental
+            const ambientSound = document.getElementById('ambientSound');
+            ambientSound.volume = 0.3;
+            
+            const dialogSound = document.getElementById('dialogSound');
+            dialogSound.pause();
+            dialogSound.currentTime = 0;
+
+            if (mixer && idleAction) {
+                if (currentAction) currentAction.stop();
+                idleAction.reset().play();
+                currentAction = idleAction;
+            }
+            
+            document.getElementById('blocker').style.display = 'none';
+            
+            try {
+                controls.lock();
+            } catch (e) {
+                console.log("Los controles ya están activos o no se pueden bloquear:", e);
+            }
+
+            if (getDistanceToLouise() > DIALOG_TRIGGER_DISTANCE) {
+                controls.lock();
+            }
+        }
+
+        // Inicialización controlada
+        document.addEventListener('DOMContentLoaded', () => {
+            init();
+            animate(performance.now());
+        });
+
+        // Limpieza al salir
+        window.addEventListener('beforeunload', () => {
+            cancelAnimationFrame(rafId);
+            if (renderer) renderer.dispose();
+            if (stats) stats.dom.remove();
+        });
+    </script>
+</body>
+</html>
